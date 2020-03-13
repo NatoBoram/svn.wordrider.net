@@ -2,14 +2,12 @@ package cz.vity.freerapid.plugins.services.ulozto;
 
 import cz.vity.freerapid.plugins.exceptions.*;
 import cz.vity.freerapid.plugins.services.recaptcha.ReCaptchaNoCaptcha;
-//import cz.vity.freerapid.plugins.services.ulozto_captcha.SoundReader;
 import cz.vity.freerapid.plugins.webclient.AbstractRunner;
 import cz.vity.freerapid.plugins.webclient.DownloadClientConsts;
 import cz.vity.freerapid.plugins.webclient.FileState;
 import cz.vity.freerapid.plugins.webclient.MethodBuilder;
 import cz.vity.freerapid.plugins.webclient.hoster.CaptchaSupport;
 import cz.vity.freerapid.plugins.webclient.utils.PlugUtils;
-import cz.vity.freerapid.utilities.LogUtils;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
@@ -28,6 +26,8 @@ import java.util.Random;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+//import cz.vity.freerapid.plugins.services.ulozto_captcha.SoundReader;
 
 /**
  * @author Ladislav Vitasek
@@ -158,10 +158,10 @@ class UlozToRunner extends AbstractRunner {
                     if (getContentAsString().contains("freeDownloadForm")) {
                         method = stepCaptcha();
                     }
-                    if (getContentAsString().contains("limitedDownloadButton")) {
-                        Matcher m = Pattern.compile("<a id=\"limitedDownloadButton\" .*? href=\"([^\"]+)\">").matcher(getContentAsString());
+                    if (getContentAsString().contains("js-free-download-button-dialog")) {
+                        Matcher m = Pattern.compile("<a href=\"javascript:;\" data-href=\"([^\"]+)\" class=\"c-button c-button__c-white js-free-download-button-dialog t-free-download-button\">").matcher(getContentAsString());
                         if (!m.find()) {
-                            throw new PluginImplementationException("<a tag containing \"limitedDownloadButton\" not found!");
+                            throw new PluginImplementationException("<a tag containing \"js-free-download-button-dialog\" not found!");
                         }
                         method = getMethodBuilder().setReferer(fileURL).setAction(m.group(1)).toGetMethod();
                     }
