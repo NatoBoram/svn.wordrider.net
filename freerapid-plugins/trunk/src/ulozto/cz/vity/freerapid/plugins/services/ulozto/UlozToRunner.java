@@ -165,6 +165,14 @@ class UlozToRunner extends AbstractRunner {
                         }
                         method = getMethodBuilder().setReferer(fileURL).setAction(m.group(1)).toGetMethod();
                     }
+                    if (getContentAsString().contains("js-free-download-button-direct")) {
+                        Matcher m = Pattern.compile("<a href=\"([^\"]+)\" class=\"c-button c-button__c-white js-free-download-button-direct t-free-download-button\" target=\"_blank\" data-download>").matcher(getContentAsString());
+                        if (!m.find()) {
+                            throw new PluginImplementationException("<a tag containing \"js-free-download-button-direct\" not found!");
+                        }
+                        method = getMethodBuilder().setReferer(fileURL).setAction(m.group(1)).toGetMethod();
+                    }
+
                     if (method == null) {
                         throw new PluginImplementationException("Nenalezeny potrebne retezce");
                     }
