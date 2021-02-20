@@ -10,5 +10,6 @@ enum VideoEncoding {
     MPEG4_Visual,
     H264,
     VP8,
-    VP9
+    VP9,
+    AV1
 }

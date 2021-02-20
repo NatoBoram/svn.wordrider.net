@@ -16,12 +16,9 @@ import org.apache.commons.httpclient.Cookie;
 import org.apache.commons.httpclient.HttpMethod;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -119,8 +116,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
                 return;
             }
 
-            Matcher matcher;
-            matcher = getMatcherAgainstContent("<script src=\"(.+?)\"\\s*?name=\"player[^/\"]*/base\"");
+            Matcher matcher = getMatcherAgainstContent("\"([^\"]*?/base\\.js)\"");
             if (!matcher.find()) {
                 throw new PluginImplementationException("Player js url not found");
             }
@@ -128,80 +124,22 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
 
             bypassAgeVerification(method);
 
-            //"url_encoded_fmt_stream_map":"type=vi...    " //normal
-            //url_encoded_fmt_stream_map=url%3Dhttp%253A... & //embedded
-            matcher = getMatcherAgainstContent("\"?url_encoded_fmt_stream_map\"?(=|:)(?: ?\")?([^&\"$]+)(?:\"|&|$)");
+            matcher = getMatcherAgainstContent("\"adaptiveFormats\":(\\[.+?\\])");
             if (!matcher.find()) {
-                throw new PluginImplementationException("Fmt stream map not found");
+                throw new PluginImplementationException("Error getting adaptive formats");
             }
-            String fmtStreamMapContent = matcher.group(1).equals(":") ? matcher.group(2) : URLDecoder.decode(matcher.group(2), "UTF-8");
-            Map<Integer, YouTubeMedia> afDashStreamMap = new LinkedHashMap<Integer, YouTubeMedia>(); //union between afStreamMap and dashStreamMap
-            if (config.isEnableDash()
-                    || (config.getDownloadMode() == DownloadMode.convertToAudio)
-                    || (config.getDownloadMode() == DownloadMode.extractAudio)) {
-                Map<Integer, YouTubeMedia> afStreamMap = null; //streams from 'adaptive_fmts', not to be confused with afDashStreamMap
-                Map<Integer, YouTubeMedia> dashStreamMap = null; //streams from 'dashmpd'
-                if (getContentAsString().contains("adaptive_fmts")) {
-                    matcher = getMatcherAgainstContent("\"?adaptive_fmts\"?(=|:)(?: ?\")?([^&\"$]+)(?:\"|&|$)");
-                    if (!matcher.find()) {
-                        throw new PluginImplementationException("Error getting adaptive fmts");
-                    }
-                    String afContent = matcher.group(1).equals(":") ? matcher.group(2) : URLDecoder.decode(matcher.group(2), "UTF-8");
-                    logger.info("Parsing adaptive_fmts");
-                    //'adaptive_fmts' parser is similar with 'url_encoded_fmt_stream_map' parser
-                    afStreamMap = getFmtStreamMap(afContent);
-                }
-                if (getContentAsString().contains("dashmpd")) {
-                    matcher = getMatcherAgainstContent("\"?dashmpd\"?(=|:)(?: ?\")?([^&\"$]+)(?:\"|&|$)");
-                    if (!matcher.find()) {
-                        throw new PluginImplementationException("Error getting dash URL");
-                    }
-                    String dashUrl = matcher.group(1).equals(":") ? matcher.group(2).replace("\\/", "/") : URLDecoder.decode(matcher.group(2), "UTF-8");
-                    logger.info("DASH URL : " + dashUrl);
-                    if (!(dashUrl.contains("/sig/") || dashUrl.contains("/signature/"))) {  //cipher signature
-                        matcher = PlugUtils.matcher("/s/([^/]+)", dashUrl);
-                        if (!matcher.find()) {
-                            throw new PluginImplementationException("Cipher signature not found");
-                        }
-                        String signature = decipherSignature(playerJsUrl, matcher.group(1));
-                        dashUrl = dashUrl.replaceFirst("/s/[^/]+", "/signature/" + signature);
-                        logger.info("DASH URL (deciphered) : " + dashUrl);
-                    }
-                    method = getMethodBuilder().setReferer(fileURL).setAction(dashUrl).toGetMethod();
-                    setTextContentTypes("video/vnd.mpeg.dash.mpd");
-                    if (!makeRedirectedRequest(method)) {
-                        checkProblems();
-                        throw new ServiceConnectionProblemException();
-                    }
-                    checkProblems();
-                    logger.info("Parsing dashmpd");
-                    dashStreamMap = getDashStreamMap(getContentAsString());
-                }
-                if (afStreamMap != null) {
-                    afDashStreamMap.putAll(afStreamMap);
-                }
-                if (dashStreamMap != null) {
-                    afDashStreamMap.putAll(dashStreamMap);
-                }
-            }
+            logger.info("Parsing adaptiveFormats");
+            Map<Integer, YouTubeMedia> afMap = parseAdaptiveFormats(matcher.group(1));
 
             YouTubeMedia youTubeMedia;
             if (dashAudioItagValue == -1) { //not dash audio
-                logger.info("Parsing url_encoded_fmt_stream_map");
-                Map<Integer, YouTubeMedia> fmtStreamMap = getFmtStreamMap(fmtStreamMapContent); //streams from 'url_encoded_fmt_stream_map'
-                Map<Integer, YouTubeMedia> ytStreamMap = new LinkedHashMap<Integer, YouTubeMedia>(); //union between fmtStreamMap and afDashStreamMap
-                ytStreamMap.putAll(fmtStreamMap); //put fmtStreamMap on top of the map
-                ytStreamMap.putAll(afDashStreamMap);
-                youTubeMedia = getSelectedYouTubeMedia(ytStreamMap);
-                if ((youTubeMedia.isDashVideo())) {
-                    //fmtStreamMap doesn't contain dash, use afDashStreamMap instead of ytStreamMap
-                    queueDashAudio(afDashStreamMap, youTubeMedia);
+                youTubeMedia = getSelectedYouTubeMedia(afMap);
+                if (youTubeMedia.isDashVideo()) {
+                    queueDashAudio(afMap, youTubeMedia);
                 }
                 queueSubtitle();
             } else { //dash audio
-                //at this moment dash audio set from afStreamMap is subset of dash audio set from dashStreamMap,
-                //so it is ok to get youTubeMedia from dashStreamMap, but it's safer to get it from afDashStream.
-                youTubeMedia = afDashStreamMap.get(dashAudioItagValue);
+                youTubeMedia = afMap.get(dashAudioItagValue);
                 if (youTubeMedia == null) {
                     throw new PluginImplementationException("DASH audio stream with itag='" + dashAudioItagValue + "' not found");
                 }
@@ -214,7 +152,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
             setClientParameter(DownloadClientConsts.DONT_USE_HEADER_FILENAME, true);
             if (!tryDownloadAndSaveFile(getGetMethod(getMediaUrl(playerJsUrl, youTubeMedia)))) {
                 if (secondaryDashAudioItagValue != -1) { //try secondary dash audio
-                    youTubeMedia = afDashStreamMap.get(secondaryDashAudioItagValue);
+                    youTubeMedia = afMap.get(secondaryDashAudioItagValue);
                     if (youTubeMedia == null) {
                         throw new PluginImplementationException("DASH audio stream with itag='" + secondaryDashAudioItagValue + "' not found");
                     }
@@ -382,43 +320,59 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         config = service.getConfig();
     }
 
-    private Map<Integer, YouTubeMedia> getFmtStreamMap(String content) {
+    private Map<Integer, YouTubeMedia> parseAdaptiveFormats(String content) throws Exception {
         Map<Integer, YouTubeMedia> fmtStreamMap = new LinkedHashMap<Integer, YouTubeMedia>();
-        String fmtStreams[] = content.split(",");
-        for (String fmtStream : fmtStreams) {
+        JsonNode rootNode;
+        try {
+            rootNode = new ObjectMapper().readTree(content);
+        } catch (Exception e) {
+            logger.warning("Error parsing JSON: " + content);
+            throw new PluginImplementationException("Error parsing JSON", e);
+        }
+        for (JsonNode node : rootNode) {
             try {
-                String fmtStreamComponents[] = PlugUtils.unescapeUnicode(fmtStream).split("&"); // \u0026 as separator
-                int itag = -1;
-                String url = null;
-                String signature = null;
-                boolean cipherSig = false;
-                for (String fmtStreamComponent : fmtStreamComponents) {
-                    String fmtStreamComponentParts[] = fmtStreamComponent.split("=");
-                    if (fmtStreamComponentParts.length < 2) {
-                        continue;
-                    }
-                    String key = fmtStreamComponentParts[0];
-                    String value = fmtStreamComponentParts[1];
-                    if (key.equals("itag")) {
-                        itag = Integer.parseInt(value);
-                    } else if (key.equals("url")) {
-                        url = URLDecoder.decode(value, "UTF-8");
-                        String sigParam = null;
-                        try {
-                            sigParam = URLUtil.getQueryParams(url, "UTF-8").get("sig");
-                        } catch (Exception e) {
-                            //
-                        }
-                        if (sigParam != null) { //contains "signature" param
-                            signature = sigParam;
-                        }
-                    } else if (key.equals("signature") || key.equals("sig") || key.equals("s")) {
-                        signature = URLDecoder.decode(value, "UTF-8");
-                        cipherSig = key.equals("s");
-                    }
+                JsonNode itagNode = node.get("itag");
+                JsonNode urlNode = node.get("url");
+                JsonNode signatureCipherNode = node.get("signatureCipher");
+                JsonNode signatureNode = node.get("signature");
+                JsonNode sigNode = node.get("sig");
+                JsonNode sNode = node.get("s");
+                if (itagNode == null || !itagNode.isNumber()) {
+                    throw new PluginImplementationException("Invalid media (itag): " + node);
                 }
-                if (itag == -1 || url == null || signature == null) {
-                    throw new PluginImplementationException("Invalid YouTube media : " + fmtStream);
+                int itag = itagNode.getIntValue();
+                String url;
+                String signature;
+                boolean cipherSig = false;
+                if (urlNode != null) {
+                    url = urlNode.getTextValue();
+                    if (signatureNode != null) {
+                        signature = signatureNode.getTextValue();
+                    } else if (sigNode != null) {
+                        signature = sigNode.getTextValue();
+                    } else if (sNode != null) {
+                        signature = sNode.getTextValue();
+                        cipherSig = true;
+                    } else {
+                        signature = URLUtil.getQueryParams(url, "UTF-8").get("sig");
+                        if (signature == null) {
+                            throw new PluginImplementationException("Invalid media (signature): " + node);
+                        }
+                    }
+                } else if (signatureCipherNode != null) {
+                    Matcher matcher = PlugUtils.matcher("url=([^&]+)", signatureCipherNode.getTextValue());
+                    if (!matcher.find()) {
+                        throw new PluginImplementationException("Invalid media (signatureCipher 1): " + node);
+                    }
+                    url = URLDecoder.decode(matcher.group(1), "UTF-8");
+                    matcher = PlugUtils.matcher("s=([^&]+)", signatureCipherNode.getTextValue());
+                    if (!matcher.find()) {
+                        throw new PluginImplementationException("Invalid media (signatureCipher 2): " + node);
+                    }
+                    signature = URLDecoder.decode(matcher.group(1), "UTF-8");
+                    cipherSig = true;
+                } else {
+                    throw new PluginImplementationException("Invalid media (url): " + node);
                 }
                 YouTubeMedia youTubeMedia = new YouTubeMedia(itag, url, signature, cipherSig);
                 logger.info("Found " + (youTubeMedia.isDash() ? "DASH " : "") + "media : " + youTubeMedia);
@@ -428,48 +382,6 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
             }
         }
         return fmtStreamMap;
-    }
-
-    private Map<Integer, YouTubeMedia> getDashStreamMap(String dashContent) throws Exception {
-        Map<Integer, YouTubeMedia> dashStreamMap = new LinkedHashMap<Integer, YouTubeMedia>();
-        if (dashContent != null) {
-            try {
-                final NodeList representationElements = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new ByteArrayInputStream(dashContent
-                        .getBytes("UTF-8"))).getElementsByTagName("Representation");
-                for (int i = 0, n = representationElements.getLength(); i < n; i++) {
-                    try {
-                        final Element representationElement = (Element) representationElements.item(i);
-                        int itag;
-                        String url;
-                        String signature = null;
-                        boolean cipherSig = false; //assume there is cipher sig in the future, couldn't find sample at the moment.
-                        String sigParam = null;
-
-                        itag = Integer.parseInt(representationElement.getAttribute("id"));
-                        url = representationElement.getElementsByTagName("BaseURL").item(0).getTextContent();
-                        try {
-                            sigParam = URLUtil.getQueryParams(url, "UTF-8").get("signature");
-                        } catch (Exception e) {
-                            //
-                        }
-                        if (sigParam != null) { //contains "signature" param
-                            signature = sigParam;
-                        }
-                        if (signature == null) {
-                            throw new PluginImplementationException("Invalid YouTube DASH media : " + representationElement.getTextContent());
-                        }
-                        YouTubeMedia youTubeMedia = new YouTubeMedia(itag, url, signature, cipherSig);
-                        logger.info("Found DASH media : " + youTubeMedia);
-                        dashStreamMap.put(itag, youTubeMedia);
-                    } catch (Exception e) {
-                        LogUtils.processException(logger, e);
-                    }
-                }
-            } catch (Exception e) {
-                throw new PluginImplementationException("Error parsing DASH descriptor", e);
-            }
-        }
-        return dashStreamMap;
     }
 
     private YouTubeMedia getSelectedYouTubeMedia(Map<Integer, YouTubeMedia> ytMediaMap) throws ErrorDuringDownloadingException {

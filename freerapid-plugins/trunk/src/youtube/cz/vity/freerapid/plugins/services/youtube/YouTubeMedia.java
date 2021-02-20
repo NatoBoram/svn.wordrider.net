@@ -86,6 +86,15 @@ class YouTubeMedia {
             case 308:
             case 313:
             case 315:
+            case 394:
+            case 395:
+            case 396:
+            case 397:
+            case 398:
+            case 399:
+            case 400:
+            case 401:
+            case 402:
             case 171: //dash audio
             case 172:
             case 249:
@@ -128,6 +137,15 @@ class YouTubeMedia {
             case 308:
             case 313:
             case 315:
+            case 394:
+            case 395:
+            case 396:
+            case 397:
+            case 398:
+            case 399:
+            case 400:
+            case 401:
+            case 402:
                 return DashType.VIDEO;
             case 139:
             case 140:
@@ -307,6 +325,16 @@ class YouTubeMedia {
             case 313:
             case 315:
                 return VideoEncoding.VP9;
+            case 394:
+            case 395:
+            case 396:
+            case 397:
+            case 398:
+            case 399:
+            case 400:
+            case 401:
+            case 402:
+                return VideoEncoding.AV1;
             default:
                 throw new PluginImplementationException("Unknown video encoding for itag=" + itag);
         }
@@ -317,12 +345,14 @@ class YouTubeMedia {
             case 17:
             case 160:
             case 278:
+            case 394:
                 return 144;
             case 5:
             case 36:
             case 83:
             case 133:
             case 242:
+            case 395:
                 return 240;
             case 6:
                 return 270;
@@ -334,11 +364,13 @@ class YouTubeMedia {
             case 101:
             case 134:
             case 243:
+            case 396:
                 return 360;
             case 35:
             case 44:
             case 135:
             case 244:
+            case 397:
                 return 480;
             case 22:
             case 45:
@@ -349,6 +381,7 @@ class YouTubeMedia {
             case 247:
             case 298:
             case 302:
+            case 398:
                 return 720;
             case 37:
             case 46:
@@ -357,19 +390,23 @@ class YouTubeMedia {
             case 248:
             case 299:
             case 303:
+            case 399:
                 return 1080;
             case 264:
             case 271:
             case 308:
+            case 400:
                 return 1440;
             case 266:
             case 272:
             case 313:
             case 315:
+            case 401:
                 return 2160;
             case 38:
                 return 3072;
-            case 138: //138=original
+            case 138:
+            case 402:
                 return 4320;
             default:
                 throw new PluginImplementationException("Unknown video resolution for itag=" + itag);
