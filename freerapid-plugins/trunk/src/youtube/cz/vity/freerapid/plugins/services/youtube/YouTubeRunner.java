@@ -8,7 +8,6 @@ import cz.vity.freerapid.plugins.video2audio.AbstractVideo2AudioRunner;
 import cz.vity.freerapid.plugins.webclient.DownloadClientConsts;
 import cz.vity.freerapid.plugins.webclient.FileState;
 import cz.vity.freerapid.plugins.webclient.utils.HttpUtils;
-import cz.vity.freerapid.plugins.webclient.utils.JsonMapper;
 import cz.vity.freerapid.plugins.webclient.utils.PlugUtils;
 import cz.vity.freerapid.utilities.LogUtils;
 import jlibs.core.net.URLUtil;
@@ -124,22 +123,34 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
 
             bypassAgeVerification(method);
 
-            matcher = getMatcherAgainstContent("\"adaptiveFormats\":(\\[.+?\\])");
+            matcher = getMatcherAgainstContent("\"formats\":(\\[.+?\\])");
             if (!matcher.find()) {
-                throw new PluginImplementationException("Error getting adaptive formats");
+                throw new PluginImplementationException("Error getting formats");
             }
-            logger.info("Parsing adaptiveFormats");
-            Map<Integer, YouTubeMedia> afMap = parseAdaptiveFormats(matcher.group(1));
+            logger.info("Parsing formats");
+            Map<Integer, YouTubeMedia> formatMap = parseFormats(matcher.group(1));
+
+            if (config.isEnableDash()
+                    || (config.getDownloadMode() == DownloadMode.convertToAudio)
+                    || (config.getDownloadMode() == DownloadMode.extractAudio)) {
+                matcher = getMatcherAgainstContent("\"adaptiveFormats\":(\\[.+?\\])");
+                if (!matcher.find()) {
+                    throw new PluginImplementationException("Error getting adaptive formats");
+                }
+                logger.info("Parsing adaptiveFormats");
+                Map<Integer, YouTubeMedia> afMap = parseFormats(matcher.group(1));
+                formatMap.putAll(afMap);
+            }
 
             YouTubeMedia youTubeMedia;
             if (dashAudioItagValue == -1) { //not dash audio
-                youTubeMedia = getSelectedYouTubeMedia(afMap);
+                youTubeMedia = getSelectedYouTubeMedia(formatMap);
                 if (youTubeMedia.isDashVideo()) {
-                    queueDashAudio(afMap, youTubeMedia);
+                    queueDashAudio(formatMap, youTubeMedia);
                 }
                 queueSubtitle();
             } else { //dash audio
-                youTubeMedia = afMap.get(dashAudioItagValue);
+                youTubeMedia = formatMap.get(dashAudioItagValue);
                 if (youTubeMedia == null) {
                     throw new PluginImplementationException("DASH audio stream with itag='" + dashAudioItagValue + "' not found");
                 }
@@ -152,7 +163,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
             setClientParameter(DownloadClientConsts.DONT_USE_HEADER_FILENAME, true);
             if (!tryDownloadAndSaveFile(getGetMethod(getMediaUrl(playerJsUrl, youTubeMedia)))) {
                 if (secondaryDashAudioItagValue != -1) { //try secondary dash audio
-                    youTubeMedia = afMap.get(secondaryDashAudioItagValue);
+                    youTubeMedia = formatMap.get(secondaryDashAudioItagValue);
                     if (youTubeMedia == null) {
                         throw new PluginImplementationException("DASH audio stream with itag='" + secondaryDashAudioItagValue + "' not found");
                     }
@@ -320,7 +331,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         config = service.getConfig();
     }
 
-    private Map<Integer, YouTubeMedia> parseAdaptiveFormats(String content) throws Exception {
+    private Map<Integer, YouTubeMedia> parseFormats(String content) throws Exception {
         Map<Integer, YouTubeMedia> fmtStreamMap = new LinkedHashMap<Integer, YouTubeMedia>();
         JsonNode rootNode;
         try {
@@ -651,7 +662,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         Matcher matcher = getMatcherAgainstContent("\"(/browse_ajax\\?action_continuation=[^\"]+?)\"");
         if (matcher.find()) {
             String continuationUrl = PlugUtils.replaceEntities(matcher.group(1));
-            ObjectMapper mapper = new JsonMapper().getObjectMapper();
+            ObjectMapper mapper = new ObjectMapper();
             do {
                 if (!makeRedirectedRequest(getGetMethod("https://www.youtube.com" + continuationUrl))) {
                     checkProblems();
