@@ -50,18 +50,37 @@ class MegaFileRunner extends AbstractRunner {
     private LinkType type = LinkType.P;
 
     private void init() throws Exception {
+        /*
+        Normal file links (LinkType.P) are formatted like this:
+        https://mega.nz/file/[fileId]#[fileKey]
+        https://mega.nz/#![fileId]![fileKey]
+
+        Folder links (LinkType.FOLDER) are formatted like this:
+        https://mega.nz/folder/[folderId]#[folderKey]
+        https://mega.nz/#F![folderId]![folderKey]
+
+        Mega also provides folder links that point to a single file (LinkType.N):
+        https://mega.nz/folder/[folderId]#[folderKey]/file/[fileId]
+        https://mega.nz/#F![folderId]![folderKey]?[fileId]
+        These links do not include the file key. This needs to be fetched from the API.
+
+        To download LinkType.N files, the properties "fileId", "fileKey" and "folderId" are needed.
+        There is no link type that is valid in a browser that includes all three properties.
+        When adding links from a folder, we use a special link format to avoid an extra API call for every file:
+        https://mega.nz/#N![fileId]![fileKey]![folderId]
+         */
         fileURL = fileURL.replace("%21", "!").replace("%23", "#");
         if (id == null) {
-            Matcher matcher = PlugUtils.matcher("#(N)?!([a-zA-Z\\d]{8})!([a-zA-Z\\d\\-_]{43})(?:!([a-zA-Z\\d]{8}))?", fileURL);
+            Matcher matcher = PlugUtils.matcher("/(?:file/|#N?!)([a-zA-Z\\d]{8})[#!]([a-zA-Z\\d\\-_]{43})(?:!([a-zA-Z\\d]{8}))?", fileURL);
             if (matcher.find()) {
-                if (matcher.group(1) != null) {
+                id = matcher.group(1);
+                api = new MegaApi(client, matcher.group(2));
+                parentFolderId = matcher.group(3);
+                if (parentFolderId != null) {
                     type = LinkType.N;
                 }
-                id = matcher.group(2);
-                api = new MegaApi(client, matcher.group(3));
-                parentFolderId = matcher.group(4);
             } else {
-                matcher = PlugUtils.matcher("#F!([a-zA-Z\\d]{8})!([a-zA-Z\\d\\-_]{22})(?:\\?([a-zA-Z\\d]{8}))?", fileURL);
+                matcher = PlugUtils.matcher("/(?:folder/|#F!)([a-zA-Z\\d]{8})[#!]([a-zA-Z\\d\\-_]{22})(?:(?:/file/|\\?)([a-zA-Z\\d]{8}))?", fileURL);
                 if (!matcher.find()) {
                     throw new PluginImplementationException("Error parsing file URL");
                 }
@@ -267,6 +286,7 @@ class MegaFileRunner extends AbstractRunner {
         }
 
         public String toString() {
+            // Use legacy type urls for files in folders, because they are not valid anyway
             return "https://mega.nz/#N!" + id + "!" + key + "!" + parentFolderId;
         }
     }

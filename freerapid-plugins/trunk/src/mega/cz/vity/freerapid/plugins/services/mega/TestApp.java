@@ -16,10 +16,10 @@ public class TestApp extends PluginDevApplication {
         final HttpFile httpFile = getHttpFile(); //creates new test instance of HttpFile
         try {
             //we set file URL
-            httpFile.setNewURL(new URL("https://mega.co.nz/#!oswTzRzC!Yk7R2QwDTJrAe7T0c4d3OigsRZk2V7ip-57KcD0Mx7U"));
-            httpFile.setNewURL(new URL("https://mega.nz/%23%21OFhU2ApT%21I7SEUKkx95RzePavdNh9SE42ahqyjtOVOTKfPdKEdr4"));
-            //httpFile.setNewURL(new URL("https://mega.co.nz/#N!dIhiDbiJ!e1xjNjyua5nlOJiEbxBBM3sDkr12kWVhi04aFGTl7f0"));
-            //httpFile.setNewURL(new URL("https://mega.co.nz/#F!scRgGChR!PzcvIBCITggtpI8mA37x3g"));
+            httpFile.setNewURL(new URL("https://mega.nz/file/ZNsEhQqb#7oHwURbXG-EecxiTPfwjB-0gQwmAH0ACkpfITLP307A"));
+            httpFile.setNewURL(new URL("https://mega.nz/folder/JE8SlQDa#O3yd2OxMbF9afujNbHs9fA"));
+            httpFile.setNewURL(new URL("https://mega.nz/folder/JE8SlQDa#O3yd2OxMbF9afujNbHs9fA/file/5EskGILZ"));
+            httpFile.setNewURL(new URL("https://mega.nz/#N!5EskGILZ!7oHwURbXG-EecxiTPfwjB-0gQwmAH0ACkpfITLP307A!JE8SlQDa"));
             //the way we connect to the internet
             final ConnectionSettings connectionSettings = new ConnectionSettings();// creates default connection
             //connectionSettings.setProxy("localhost", 8118); //eg we can use local proxy to sniff HTTP communication
