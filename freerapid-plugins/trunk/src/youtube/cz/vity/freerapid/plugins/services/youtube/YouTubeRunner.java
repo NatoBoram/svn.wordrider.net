@@ -54,6 +54,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         super.runCheck();
         checkUrl();
         addCookie(new Cookie(".youtube.com", "PREF", "hl=en", "/", 86400, false));
+        addCookie(new Cookie(".youtube.com", "CONSENT", "YES+", "/", 86400, false));
         if (isAttributionLink()) {
             processAttributionLink();
         }
@@ -79,6 +80,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         logger.info("Starting download in TASK " + fileURL);
         checkUrl();
         addCookie(new Cookie(".youtube.com", "PREF", "hl=en", "/", 86400, false));
+        addCookie(new Cookie(".youtube.com", "CONSENT", "YES+", "/", 86400, false));
         setConfig();
         if (isAttributionLink()) {
             processAttributionLink();
