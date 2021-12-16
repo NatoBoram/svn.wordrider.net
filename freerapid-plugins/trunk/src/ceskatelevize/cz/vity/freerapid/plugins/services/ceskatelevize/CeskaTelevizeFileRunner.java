@@ -139,9 +139,9 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
                 throw new PluginImplementationException("Error getting programme title (4)");
             }
             return PlugUtils.unescapeHtml(matcher.group(1).trim())
-                    .replace("Video —", "")
-                    .replace("— Česká televize", "")
-                    .replace("— iVysílání", "");
+                    .replaceAll("Video .", "")
+                    .replaceAll(". Česká televize", "")
+                    .replaceAll(". iVysílání", "");
         } else {
             throw new PluginImplementationException("Error getting programme title (5)");
         }
@@ -160,7 +160,7 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
             final GetMethod method = getGetMethod(fileURL);
             if (!makeRedirectedRequest(method)) {
                 checkProblems();
-                throw new ServiceConnectionProblemException("");
+                throw new ServiceConnectionProblemException();
             }
             checkProblems();
             if (isArchiveProgramme(fileURL)) {
@@ -175,6 +175,7 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
         //then we have to find a way to get video player URL.
         HttpMethod httpMethod;
         String referer = fileURL;
+        /*
         if (!getContentAsString().contains("getPlaylistUrl(")) {
             //check if it has specific iframe that contains video player URL
             Matcher iframeMatcher = Pattern.compile("(<i?frame(.*?)>)", Pattern.DOTALL | Pattern.CASE_INSENSITIVE | Pattern.MULTILINE).matcher(getContentAsString());
@@ -290,6 +291,7 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
         //So we have a way to get playlist URL.
         //Let's get some required params
         URL requestUrl = new URL(referer);
+        */
         String videoId;
         String type;
         try {
@@ -313,7 +315,7 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
                 .setParameter("playlist[0][stopTime]", "")
                 .setParameter("playlist[0][type]", type)
                 .setParameter("requestSource", "iVysilani")
-                .setParameter("requestUrl", requestUrl.getAuthority())
+                .setParameter("requestUrl", "/ivysilani/embed/iFramePlayer.php")
                 .setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 .setHeader("x-addr", "127.0.0.1")
                 .toPostMethod();

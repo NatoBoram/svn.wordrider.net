@@ -19,6 +19,7 @@ enum VideoQuality {
     _404(404, 1000),
     _576(576, 2000),
     _720(720, 4000),
+    _1080(1080, 6000),
     Highest(10000, 100000, "Highest quality");
 
     private final int bitrate;  //Kbps
