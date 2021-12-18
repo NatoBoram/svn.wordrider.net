@@ -293,29 +293,31 @@ class CeskaTelevizeFileRunner extends AbstractRunner {
         URL requestUrl = new URL(referer);
         */
         String videoId;
-        String type;
         try {
-            videoId = PlugUtils.getStringBetween(getContentAsString(), "\"id\":\"", "\"");
+            videoId = PlugUtils.getStringBetween(getContentAsString(), "\"idec\":\"", "\"");
         } catch (PluginImplementationException e) {
-            throw new PluginImplementationException("Video ID not found");
+            try {
+                videoId = PlugUtils.getStringBetween(getContentAsString(), "&amp;IDEC=", "&amp;");
+                videoId = videoId.replaceAll("[^\\d]+", "");
+            } catch (PluginImplementationException e2) {
+                throw new PluginImplementationException("Video ID not found");
+            }
         }
-        try {
-            type = PlugUtils.getStringBetween(getContentAsString(), "\"type\":\"", "\"");
-        } catch (PluginImplementationException e) {
-            throw new PluginImplementationException("Request type not found");
-        }
+        logger.info("Video ID: " + videoId);
 
         //Request getting playlist with the required params
         httpMethod = getMethodBuilder()
                 .setReferer(referer)
                 .setAjax()
                 .setAction("https://www.ceskatelevize.cz/ivysilani/ajax/get-client-playlist/")
+                .setParameter("playlist[0][type]", "episode")
                 .setParameter("playlist[0][id]", videoId)
                 .setParameter("playlist[0][startTime]", "")
                 .setParameter("playlist[0][stopTime]", "")
-                .setParameter("playlist[0][type]", type)
-                .setParameter("requestSource", "iVysilani")
                 .setParameter("requestUrl", "/ivysilani/embed/iFramePlayer.php")
+                .setParameter("requestSource", "iVysilani")
+                .setParameter("requestUrl", "html")
+                .setParameter("canPlayDRM", "true")
                 .setHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                 .setHeader("x-addr", "127.0.0.1")
                 .toPostMethod();
