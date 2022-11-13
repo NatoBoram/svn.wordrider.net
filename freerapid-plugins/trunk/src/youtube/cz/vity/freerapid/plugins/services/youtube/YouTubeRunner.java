@@ -53,6 +53,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
     public void runCheck() throws Exception {
         super.runCheck();
         checkUrl();
+        setClientParameter(DownloadClientConsts.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36");
         addCookie(new Cookie(".youtube.com", "PREF", "hl=en", "/", 86400, false));
         addCookie(new Cookie(".youtube.com", "CONSENT", "YES+", "/", 86400, false));
         if (isAttributionLink()) {
@@ -79,6 +80,7 @@ class YouTubeRunner extends AbstractVideo2AudioRunner {
         super.run();
         logger.info("Starting download in TASK " + fileURL);
         checkUrl();
+        setClientParameter(DownloadClientConsts.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36");
         addCookie(new Cookie(".youtube.com", "PREF", "hl=en", "/", 86400, false));
         addCookie(new Cookie(".youtube.com", "CONSENT", "YES+", "/", 86400, false));
         setConfig();
