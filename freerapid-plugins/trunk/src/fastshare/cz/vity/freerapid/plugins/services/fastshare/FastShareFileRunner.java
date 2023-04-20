@@ -29,6 +29,8 @@ class FastShareFileRunner extends AbstractRunner {
         final GetMethod getMethod = getGetMethod(fileURL);
         //site returning status code 404 when page loads correctly ??
         makeRedirectedRequest(getMethod);
+        String redirectUrl = PlugUtils.getStringBetween(getContentAsString(), "url=", "\">");
+        makeRedirectedRequest(getGetMethod(redirectUrl));
         checkProblems();
         checkNameAndSize(getContentAsString());
     }
@@ -40,19 +42,21 @@ class FastShareFileRunner extends AbstractRunner {
             try {
                 PlugUtils.checkName(httpFile, content, "<h3 class=\"section_title\">", "</h3>");
             } catch (Exception ee) {
-                PlugUtils.checkName(httpFile, content, "<title>", "| FastShare.cz</title>");
+                PlugUtils.checkName(httpFile, content, "<title>", " online ke");
             }
         }
-        final Matcher match = PlugUtils.matcher("Velikost\\s*?:\\s*?(?:<[^<>]+?>)?(.+?)<", content);
-        if (match.find()) {
-            httpFile.setFileSize(PlugUtils.getFileSizeFromString(match.group(1).trim()));
-        } else {
-            try {
-                PlugUtils.checkFileSize(httpFile, content, ": ", ", File type");
-            } catch (Exception ee) {
-                PlugUtils.checkFileSize(httpFile, content.replace("&nbsp;", " "), "fa-bars\"></i>", "</");
-            }
-        }
+        PlugUtils.checkFileSize(httpFile, content.replace("&nbsp;", " "), "fa-bars\"></i>", "</");
+
+//        final Matcher match = PlugUtils.matcher("Velikost\\s*?:\\s*?(?:<[^<>]+?>)?(.+?)<", content);
+//        if (match.find()) {
+//            httpFile.setFileSize(PlugUtils.getFileSizeFromString(match.group(1).trim()));
+//        } else {
+//            try {
+//                PlugUtils.checkFileSize(httpFile, content, ": ", ", File type");
+//            } catch (Exception ee) {
+//
+//            }
+//        }
         httpFile.setFileState(FileState.CHECKED_AND_EXISTING);
     }
 
@@ -65,6 +69,8 @@ class FastShareFileRunner extends AbstractRunner {
         final GetMethod method = getGetMethod(fileURL);
         //site returning status code 404 when page loads correctly ??
         makeRedirectedRequest(method);
+        String redirectUrl = PlugUtils.getStringBetween(getContentAsString(), "url=", "\">");
+        makeRedirectedRequest(getGetMethod(redirectUrl));
         final String contentAsString = getContentAsString();
         checkDownloadProblems();
         checkNameAndSize(contentAsString);
@@ -107,7 +113,7 @@ class FastShareFileRunner extends AbstractRunner {
 
     private void checkProblems() throws ErrorDuringDownloadingException {
         final String contentAsString = getContentAsString();
-        if (contentAsString.contains("<title>FastShare.cz</title>") && !contentAsString.contains("Stáhnout FREE")) {
+        if (contentAsString.contains("<title>FastShare.live</title>") && !contentAsString.contains("Stáhnout FREE")) {
             throw new URLNotAvailableAnymoreException("File not found");
         }
         if (contentAsString.contains("Tento soubor byl smazán") || contentAsString.contains("404 Not Found") ||
